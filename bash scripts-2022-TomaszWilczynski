@@ -1,0 +1,75 @@
+#!/bin/bash
+
+# Set the email address to use for sending notifications
+email_address="user@example.com"
+
+# Prompt the user for a directory to search
+echo "Enter a directory to search:"
+read directory
+
+# Check if the directory exists
+if [ ! -d "$directory" ]; then
+  echo "Error: The directory you entered does not exist."
+  exit 1
+fi
+
+# Check if the directory is empty
+if [ -z "$(ls -A $directory)" ]; then
+  echo "Error: The directory you entered is empty."
+  exit 1
+fi
+
+# Prompt the user for a file extension to search for
+echo "Enter a file extension to search for (e.g. txt, jpg, etc.):"
+read extension
+
+# Set the filename to use for the search results
+results_file="$directory/search_results.$extension.txt"
+
+# Create an array to store the search results
+declare -a results=()
+
+# Search the directory for files with the specified extension
+for file in "$directory"/*; do
+  # Check if the file has the specified extension
+  if [ "${file##*.}" == "$extension" ]; then
+    # Add the file to the results array
+    results+=("$file")
+  fi
+done
+
+# Check if any files were found
+if [ ${#results[@]} -eq 0 ]; then
+  echo "No files with the specified extension were found in the directory."
+  # Send an email notification with the search results
+  echo "No files with the specified extension were found in the directory." | mail -s "Search Results" "$email_address"
+else
+  # Write the search results to a file
+  for result in "${results[@]}"; do
+    echo "$result" >> "$results_file"
+  done
+  echo "The search results have been written to $results_file"
+  # Send an email notification with the search results
+  cat "$results_file" | mail -s "Search Results" "$email_address"
+fi
+
+# Check if the current directory is a git repository
+if [ ! -d ".git" ]; then
+  # Initialize a new git repository
+  git init
+fi
+
+# Check if the search results file has already been added to the repository
+if git ls-files --error-unmatch "$results_file" > /dev/null 2>&1; then
+  echo "The search results file is already tracked by git."
+else
+  # Add the search results file to the repository
+  git add "$results_file"
+  echo "The search results file has been added to the git repository."
+fi
+
+# Check if there are any changes to be committed
+if git diff-index --quiet HEAD --; then
+  echo "There are no changes to be committed."
+else
+  # Prompt the user for
